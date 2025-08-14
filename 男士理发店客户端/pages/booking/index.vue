@@ -35,16 +35,6 @@
         <button class="choose-btn" size="mini" @click="openTimeSheet">选择时段</button>
       </view>
 
-
-
-      <view class="form-item">
-        <text class="label">手机号</text>
-        <input class="picker-value" type="number" maxlength="11" v-model="mobile" placeholder="可留空，或一键获取手机号" />
-        <!-- #ifdef MP-WEIXIN -->
-        <button size="mini" class="choose-btn" open-type="getPhoneNumber" @getphonenumber="onGetPhoneNumber">获取</button>
-        <!-- #endif -->
-      </view>
-
       <view class="form-item">
         <text class="label">备注</text>
         <input class="picker-value" v-model="remark" placeholder="如：需要修面/提前10分钟到店" />
@@ -130,7 +120,6 @@ export default {
       selectedServiceIndex: 0,
       selectedDate: `${yyyy}-${mm}-${dd}`,
       selectedTime: `${hh}:${mi}`,
-      mobile: '',
       remark: '',
       user: { loggedIn: false, nickname: '', avatar: '', phone: '' },
       showTimeModal: false,
@@ -162,12 +151,35 @@ export default {
       const cachedUser = uni.getStorageSync('MY_USER')
       if (cachedUser && typeof cachedUser === 'object') {
         this.user = cachedUser
-        if (cachedUser.phone) this.mobile = cachedUser.phone
+        // 关键：若已登录但没有 id，尝试用 openId/phone 拉取档案以补全 id
+        await this.ensureUserId()
       }
 
     } catch(e) {}
   },
   methods: {
+    async ensureUserId() {
+      try {
+        if (this.user && this.user.loggedIn && !this.user.id && (this.user.openId || this.user.phone)) {
+          const params = { action: 'getProfile' }
+          if (this.user.openId) params.openId = this.user.openId
+          else if (this.user.phone) params.phone = this.user.phone
+          const res = await uniCloud.callFunction({ name: 'user', data: params })
+          const doc = res?.result?.data
+          if (doc && doc._id) {
+            this.user.id = doc._id
+            this.user.seqNo = doc.seqNo || this.user.seqNo
+            this.user.nickname = doc.nickname || this.user.nickname
+            this.user.avatar = doc.avatar || this.user.avatar
+            this.user.phone = doc.phone || this.user.phone
+            this.user.loggedIn = true
+            uni.setStorageSync('MY_USER', this.user)
+            return true
+          }
+        }
+      } catch (e) {}
+      return !!(this.user && this.user.id)
+    },
     async loadShopState() {
       try {
         const res = await uniCloud.callFunction({
@@ -220,15 +232,7 @@ export default {
       }
     },
     
-    onGetPhoneNumber(e) {
-      // #ifdef MP-WEIXIN
-      // 需要配置绑定服务类目和获取手机号能力，演示中直接读取加密数据占位
-      if (e.detail && e.detail.code) {
-        // 这里通常发到服务端换取手机号；演示直接提示
-        uni.showToast({ title: '已授权获取', icon: 'success' })
-      }
-      // #endif
-    },
+    // 已移除 onGetPhoneNumber
 
     onServiceChange(e) {
       this.selectedServiceIndex = Number(e.detail.value)
@@ -299,12 +303,14 @@ export default {
       this.showTimeModal = false
     },
      async submitBooking() {
+       // 提交前兜底补全 userId
+       await this.ensureUserId()
        if (!this.user || !this.user.loggedIn || !this.user.id) {
          uni.showModal({
            title: '请先登录',
            content: '预约需登录，请先前往个人中心完成微信一键登录。',
            confirmText: '去登录',
-           success: (res) => { if (res.confirm) uni.switchTab({ url: '/pages/profile/index' }) }
+           success: (res) => { if (res.confirm) uni.navigateTo({ url: '/pages/profile/index' }) }
          })
          return
        }
@@ -316,7 +322,7 @@ export default {
        const ok = await new Promise((resolve) => {
          uni.showModal({
            title: '确认预约',
-           content: `服务：${service?.name || '-'}\n时间：${timeText}\n手机：${this.mobile || '（未授权）'}\n备注：${this.remark || '-'}`,
+           content: `服务：${service?.name || '-'}\n时间：${timeText}\n备注：${this.remark || '-'}`,
            success: (res) => resolve(!!res.confirm)
          })
        })
@@ -333,7 +339,7 @@ export default {
              durationMin: duration,
              serviceId: service?.id || 0,
               userId: this.user?.id || '',
-              phone: this.mobile || this.user?.phone || '',
+              phone: this.user?.phone || '',
               remark: this.remark || ''
            }
          })
@@ -342,7 +348,7 @@ export default {
          if (result.code === 0) {
            uni.showToast({ title: '预约成功', icon: 'success' })
            setTimeout(() => {
-             uni.switchTab({ url: '/pages/bookings/index' })
+             uni.navigateTo({ url: '/pages/booking/my-bookings' })
            }, 1500)
          } else {
            uni.showToast({ title: result.message || '预约失败', icon: 'none' })

@@ -198,22 +198,102 @@ export default {
       } catch(e) {}
     },
     wxLogin() {
-      // 小程序环境使用 getUserProfile
+      // 小程序环境使用 getUserProfile 和 wx.login
       // #ifdef MP-WEIXIN
-      wx.getUserProfile({ desc: '用于完善会员资料', success: async (res) => {
-        const { avatarUrl, nickName } = res.userInfo || {}
-        try {
-          const up = await uniCloud.callFunction({ name: 'user', data: { action: 'upsertProfile', nickname: nickName || '微信用户', avatar: avatarUrl || '', openId: this.user.openId || '' } })
-          const id = up?.result?.data?.id
-          const seqNo = up?.result?.data?.seqNo
-          this.user = { loggedIn: true, id: id || this.user.id || '', seqNo: seqNo || null, avatar: avatarUrl || '', nickname: nickName || '微信用户', openId: this.user.openId || '', phone: this.user.phone || '' }
-          uni.setStorageSync('MY_USER', this.user)
-          this.refreshProfile()
-        } catch (e) {
-          this.user = { loggedIn: true, id: this.user.id || '', seqNo: this.user.seqNo || null, avatar: avatarUrl || '', nickname: nickName || '微信用户', openId: this.user.openId || '', phone: this.user.phone || '' }
-          uni.setStorageSync('MY_USER', this.user)
+      // 先获取 openId
+      wx.login({
+        success: (loginRes) => {
+          if (loginRes.code) {
+            // 获取用户信息
+            wx.getUserProfile({ 
+              desc: '用于完善会员资料', 
+              success: async (profileRes) => {
+                const { avatarUrl, nickName } = profileRes.userInfo || {}
+                try {
+                  // 通过云函数获取 openId
+                  const authRes = await uniCloud.callFunction({ 
+                    name: 'user', 
+                    data: { 
+                      action: 'getOpenId', 
+                      code: loginRes.code 
+                    } 
+                  })
+                  const openId = authRes?.result?.data?.openId || ''
+                  
+                  // 一键获取手机号
+                  let phoneNumber = ''
+                  try {
+                    // 获取新的微信登录凭证用于手机号
+                    const phoneLoginRes = await new Promise((resolve, reject) => {
+                      wx.login({
+                        success: resolve,
+                        fail: reject
+                      })
+                    })
+                    
+                    if (phoneLoginRes.code) {
+                      const phoneRes = await uniCloud.callFunction({
+                        name: 'user',
+                        data: {
+                          action: 'getPhoneNumber',
+                          code: phoneLoginRes.code
+                        }
+                      })
+                      
+                      if (phoneRes?.result?.code === 0) {
+                        phoneNumber = phoneRes.result.data.purePhoneNumber || ''
+                      }
+                    }
+                  } catch (phoneError) {
+                    console.log('自动获取手机号失败，可以手动输入:', phoneError)
+                  }
+                  
+                  // 创建或更新用户档案（包含手机号）
+                  const up = await uniCloud.callFunction({ 
+                    name: 'user', 
+                    data: { 
+                      action: 'upsertProfile', 
+                      nickname: nickName || '微信用户', 
+                      avatar: avatarUrl || '', 
+                      openId: openId,
+                      phone: phoneNumber
+                    } 
+                  })
+                  const id = up?.result?.data?.id
+                  const seqNo = up?.result?.data?.seqNo
+                  this.user = { 
+                    loggedIn: true, 
+                    id: id || '', 
+                    seqNo: seqNo || null, 
+                    avatar: avatarUrl || '', 
+                    nickname: nickName || '微信用户', 
+                    openId: openId, 
+                    phone: phoneNumber
+                  }
+                  uni.setStorageSync('MY_USER', this.user)
+                  this.refreshProfile()
+                  
+                  const message = phoneNumber ? 
+                    `登录成功！已自动获取手机号：${phoneNumber}` : 
+                    '登录成功！'
+                  uni.showToast({ title: message, icon: 'success', duration: 2000 })
+                } catch (e) {
+                  console.error('登录失败:', e)
+                  uni.showToast({ title: '登录失败，请重试', icon: 'none' })
+                }
+              },
+              fail: () => {
+                uni.showToast({ title: '需要授权才能登录', icon: 'none' })
+              }
+            })
+          } else {
+            uni.showToast({ title: '获取登录凭证失败', icon: 'none' })
+          }
+        },
+        fail: () => {
+          uni.showToast({ title: '微信登录失败', icon: 'none' })
         }
-      } })
+      })
       // #endif
       // #ifndef MP-WEIXIN
       (async () => {

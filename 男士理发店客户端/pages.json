@@ -19,6 +19,12 @@
             }
         },
         {
+            "path": "pages/booking/my-bookings",
+            "style": {
+                "navigationBarTitleText": "我的预约"
+            }
+        },
+        {
             "path": "pages/wallet/recharge",
             "style": {
                 "navigationBarTitleText": "线下充值"
@@ -43,43 +49,7 @@
                 "navigationBarTitleText": "消费记录"
             }
         }
-    ,{
-    "path": "pages/bookings/add",
-    "style": {
-        "navigationBarTitleText": "新增"
-    }
-}
-,{
-    "path": "pages/bookings/edit",
-    "style": {
-        "navigationBarTitleText": "编辑"
-    }
-}
-,{
-    "path": "pages/bookings/list",
-    "style": {
-        "navigationBarTitleText": "列表"
-    }
-}
-,{
-    "path": "pages/configs/add",
-    "style": {
-        "navigationBarTitleText": "新增"
-    }
-}
-,{
-    "path": "pages/configs/edit",
-    "style": {
-        "navigationBarTitleText": "编辑"
-    }
-}
-,{
-    "path": "pages/configs/list",
-    "style": {
-        "navigationBarTitleText": "列表"
-    }
-}
-],
+    ],
     "globalStyle": {
         "navigationBarTextStyle": "black",
         "navigationBarTitleText": "M·Y 男士理发店",

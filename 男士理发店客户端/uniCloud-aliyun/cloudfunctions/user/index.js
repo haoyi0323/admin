@@ -5,6 +5,7 @@
 // - upsertProfile: { nickname, avatar, phone, openId } → 创建/更新用户（含自增 seqNo）
 // - getProfile: { openId } or { phone }
 // - updateCardTimes: { userId|openId|phone, delta|value }
+// - getOpenId: { code } → 根据微信登录凭证获取 openId
 
 async function getNextSeq(db) {
   const coll = db.collection('configs')
@@ -102,6 +103,26 @@ exports.main = async (event, context) => {
     return { code: 400, message: 'invalid params' }
   }
 
+  if (action === 'getOpenId') {
+    const { code } = data
+    if (!code) return { code: 400, message: 'code required' }
+    try {
+      const appid = process.env.WX_APPID || ''
+      const secret = process.env.WX_APPSECRET || ''
+      if (!appid || !secret) {
+        return { code: 500, message: '微信配置缺失，请在云函数环境变量中配置 WX_APPID 和 WX_APPSECRET' }
+      }
+      const url = `https://api.weixin.qq.com/sns/jscode2session?appid=${appid}&secret=${secret}&js_code=${code}&grant_type=authorization_code`
+      const { data: resp } = await uniCloud.httpclient.request(url, { method: 'GET', dataType: 'json' })
+      if (resp && resp.openid) {
+        return { code: 0, data: { openId: resp.openid, unionId: resp.unionid || '' } }
+      }
+      return { code: 500, message: resp?.errmsg || 'jscode2session failed', data: resp }
+    } catch (e) {
+      return { code: 500, message: e.message }
+    }
+  }
+
   if (action === 'getConsumptionRecords') {
     const { userId, phone, openId, limit = 50, skip = 0 } = data || {};
     let finalUserId = userId;
@@ -144,6 +165,52 @@ exports.main = async (event, context) => {
     } catch (err) {
       console.error('getConsumptionRecords error:', err);
       return { code: 500, message: '服务器内部错误', error: err.message };
+    }
+  }
+
+  if (action === 'getPhoneNumber') {
+    const { code } = data
+    if (!code) return { code: 400, message: 'code required' }
+    
+    try {
+      // 首先需要获取 access_token
+      const appid = process.env.WX_APPID || ''
+      const secret = process.env.WX_APPSECRET || ''
+      if (!appid || !secret) {
+        return { code: 500, message: '微信配置缺失，请在云函数环境变量中配置 WX_APPID 和 WX_APPSECRET' }
+      }
+      
+      // 获取 access_token
+      const tokenUrl = `https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${appid}&secret=${secret}`
+      const { data: tokenResp } = await uniCloud.httpclient.request(tokenUrl, { method: 'GET', dataType: 'json' })
+      
+      if (!tokenResp || !tokenResp.access_token) {
+        return { code: 500, message: '获取access_token失败', data: tokenResp }
+      }
+      
+      // 解析手机号
+      const phoneUrl = `https://api.weixin.qq.com/wxa/business/getuserphonenumber?access_token=${tokenResp.access_token}`
+      const { data: phoneResp } = await uniCloud.httpclient.request(phoneUrl, { 
+        method: 'POST', 
+        dataType: 'json',
+        data: JSON.stringify({ code }),
+        headers: { 'Content-Type': 'application/json' }
+      })
+      
+      if (phoneResp && phoneResp.errcode === 0 && phoneResp.phone_info) {
+        return { 
+          code: 0, 
+          data: { 
+            phoneNumber: phoneResp.phone_info.phoneNumber,
+            purePhoneNumber: phoneResp.phone_info.purePhoneNumber,
+            countryCode: phoneResp.phone_info.countryCode
+          } 
+        }
+      }
+      
+      return { code: 500, message: phoneResp?.errmsg || 'getPhoneNumber failed', data: phoneResp }
+    } catch (e) {
+      return { code: 500, message: e.message }
     }
   }
 
