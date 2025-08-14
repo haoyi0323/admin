@@ -1,0 +1,11 @@
+{
+  "bsonType": "object",
+  "required": ["key"],
+  "properties": {
+    "key": { "bsonType": "string", "description": "配置键，如 shopHours" },
+    "value": { "bsonType": ["string", "object", "array", "int", "long", "double", "bool", "null"], "description": "配置值" },
+    "updatedAt": { "bsonType": ["int", "long"], "description": "更新时间戳" }
+  }
+}
+
+

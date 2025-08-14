@@ -1,0 +1,64 @@
+{
+  "bsonType": "object",
+  "required": ["name", "duration", "price"],
+  "properties": {
+    "_id": {
+      "description": "服务ID"
+    },
+    "name": {
+      "bsonType": "string",
+      "description": "服务名称",
+      "title": "服务名称"
+    },
+    "description": {
+      "bsonType": "string",
+      "description": "服务描述",
+      "title": "服务描述"
+    },
+    "image": {
+      "bsonType": "string",
+      "description": "服务图片URL",
+      "title": "服务图片"
+    },
+    "duration": {
+      "bsonType": "int",
+      "description": "服务时长（分钟）",
+      "title": "服务时长",
+      "minimum": 1
+    },
+    "price": {
+      "bsonType": "double",
+      "description": "服务价格（元）",
+      "title": "服务价格",
+      "minimum": 0
+    },
+    "isActive": {
+      "bsonType": "bool",
+      "description": "是否启用",
+      "title": "是否启用",
+      "defaultValue": true
+    },
+    "sortOrder": {
+      "bsonType": "int",
+      "description": "排序顺序",
+      "title": "排序顺序",
+      "defaultValue": 0
+    },
+    "createdAt": {
+      "bsonType": "timestamp",
+      "description": "创建时间",
+      "title": "创建时间",
+      "forceDefaultValue": {
+        "$env": "now"
+      }
+    },
+    "updatedAt": {
+      "bsonType": "timestamp",
+      "description": "更新时间",
+      "title": "更新时间",
+      "forceDefaultValue": {
+        "$env": "now"
+      }
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "bsonType": "object",
+  "required": ["nickname"],
+  "properties": {
+    "openId": { "bsonType": "string", "description": "微信 openid（可空，H5 无）" },
+    "nickname": { "bsonType": "string" },
+    "avatar": { "bsonType": "string" },
+    "phone": { "bsonType": "string" },
+    "seqNo": { "bsonType": ["int", "long", "double"], "description": "用户序号（自增）" },
+    "cardTimes": { "bsonType": ["int", "long", "double"], "description": "会员卡剩余次数" },
+    "createdAt": { "bsonType": ["int", "long"], "description": "创建时间戳" },
+    "updatedAt": { "bsonType": ["int", "long"], "description": "更新时间戳" }
+  }
+}
+
+

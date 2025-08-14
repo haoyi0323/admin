@@ -1,0 +1,20 @@
+{
+  "name": "reminder-scheduler",
+  "version": "1.0.0",
+  "description": "预约提醒定时任务调度器",
+  "main": "index.js",
+  "dependencies": {
+    "uni-cloud-router": "latest"
+  },
+  "cloudfunction-config": {
+    "memorySize": 256,
+    "timeout": 120,
+    "triggers": [
+      {
+        "name": "reminder-trigger",
+        "type": "timer",
+        "config": "0 0 9,15 * * *"
+      }
+    ]
+  }
+}

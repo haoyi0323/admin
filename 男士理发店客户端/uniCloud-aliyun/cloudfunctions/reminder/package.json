@@ -1,0 +1,13 @@
+{
+  "name": "reminder",
+  "version": "1.0.0",
+  "description": "预约提醒云函数",
+  "main": "index.js",
+  "dependencies": {
+    "uni-cloud-router": "latest"
+  },
+  "cloudfunction-config": {
+    "memorySize": 256,
+    "timeout": 60
+  }
+}

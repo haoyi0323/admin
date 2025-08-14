@@ -1,0 +1,70 @@
+{
+  "bsonType": "object",
+  "required": ["userId", "serviceName", "paymentType", "consumedAt"],
+  "permission": {
+    "read": false,
+    "create": false,
+    "update": false,
+    "delete": false
+  },
+  "properties": {
+    "_id": {
+      "description": "ID，系统自动生成"
+    },
+    "userId": {
+      "bsonType": "string",
+      "description": "用户ID",
+      "label": "用户ID"
+    },
+    "serviceId": {
+      "bsonType": "string",
+      "description": "服务ID（可为空）",
+      "label": "服务ID"
+    },
+    "serviceName": {
+      "bsonType": "string",
+      "description": "服务名称",
+      "label": "服务名称"
+    },
+    "price": {
+      "bsonType": "number",
+      "description": "服务价格",
+      "label": "价格",
+      "minimum": 0
+    },
+    "paymentType": {
+      "bsonType": "string",
+      "description": "支付方式",
+      "label": "支付方式",
+      "enum": ["cash", "card"],
+      "enumDesc": ["现金支付", "会员卡消费"]
+    },
+    "cardTimesBefore": {
+      "bsonType": "int",
+      "description": "消费前会员卡剩余次数",
+      "label": "消费前剩余次数",
+      "minimum": 0
+    },
+    "cardTimesAfter": {
+      "bsonType": "int",
+      "description": "消费后会员卡剩余次数",
+      "label": "消费后剩余次数",
+      "minimum": 0
+    },
+    "bookingId": {
+      "bsonType": "string",
+      "description": "关联的预约ID",
+      "label": "预约ID"
+    },
+    "consumedAt": {
+      "bsonType": "timestamp",
+      "description": "消费时间",
+      "label": "消费时间"
+    },
+    "createdAt": {
+      "bsonType": "timestamp",
+      "description": "记录创建时间",
+      "label": "创建时间"
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "buildCommand": "cd 男士理发店管理后台 && npm install && npm run build",
+  "outputDirectory": "男士理发店管理后台/dist",
+  "rewrites": [
+    {
+      "source": "/api",
+      "destination": "https://fc-mp-07deb218-bf71-47a5-9cf0-10e81e399ed3.next.bspapp.com/http/api-gateway"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "https://fc-mp-07deb218-bf71-47a5-9cf0-10e81e399ed3.next.bspapp.com/http/api-gateway"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

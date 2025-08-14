@@ -1,0 +1,32 @@
+# Node / Vite / UniApp common ignores
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+**/dist/
+男士理发店客户端/unpackage/
+
+# Local env files
+.env.local
+**/.env.local
+.env
+**/.env
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS / Editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Vercel local project link (keep vercel.json in repo)
+.vercel/
+
+# HBuilderX cache
+.hbuilderx/

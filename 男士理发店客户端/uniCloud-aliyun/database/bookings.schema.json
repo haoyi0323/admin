@@ -1,0 +1,17 @@
+{
+  "bsonType": "object",
+  "required": ["date", "time", "durationMin"],
+  "properties": {
+    "userId": { "bsonType": "string", "description": "用户ID（可为空）" },
+    "serviceId": { "bsonType": ["int", "long", "double", "string"], "description": "服务ID" },
+    "date": { "bsonType": "string", "description": "预约日期 YYYY-MM-DD" },
+    "time": { "bsonType": "string", "description": "预约时间 HH:mm" },
+    "durationMin": { "bsonType": ["int", "long", "double"], "description": "耗时(分钟)" },
+    "remark": { "bsonType": "string" },
+    "contactPhone": { "bsonType": "string", "description": "联系电话" },
+    "status": { "bsonType": "string", "enum": ["pending", "booked", "finished", "canceled"], "description": "状态" },
+    "createdAt": { "bsonType": ["int", "long"], "description": "创建时间戳" }
+  }
+}
+
+
