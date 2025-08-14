@@ -1,4 +1,10 @@
 {
+  "name": "barbershop-project",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "cd 男士理发店管理后台 && npm install && npm run build",
+    "start": "cd 男士理发店管理后台 && npm run preview"
+  },
   "dependencies": {
     "vuex": "^4.1.0"
   }

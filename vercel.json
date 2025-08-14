@@ -1,6 +1,7 @@
 {
-  "buildCommand": "cd 男士理发店管理后台 && npm install && npm run build",
+  "buildCommand": "npm run build",
   "outputDirectory": "男士理发店管理后台/dist",
+  "installCommand": "npm install",
   "rewrites": [
     {
       "source": "/api",
