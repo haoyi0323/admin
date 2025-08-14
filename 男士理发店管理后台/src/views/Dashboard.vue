@@ -1,6 +1,12 @@
 <template>
   <div class="page">
-    <el-page-header content="仪表盘" title="男士理发店后台"/>
+    <div class="page-title">
+      仪表盘
+      <div class="shop-switch">
+        <span class="label">店铺状态：</span>
+        <el-switch v-model="shopOpen" active-text="营业中" inactive-text="已关店" @change="onToggleShop" />
+      </div>
+    </div>
     <div class="cards">
       <el-card class="card">
         <div class="card-title">今日预约</div>
@@ -19,7 +25,7 @@
       <template #header>
         <div class="card-title">最近预约记录</div>
       </template>
-      <el-table :data="records" size="small">
+      <el-table :data="records" size="small" v-loading="loadingRecords">
         <el-table-column prop="date" label="日期" width="120"/>
         <el-table-column prop="time" label="时间" width="100"/>
         <el-table-column prop="serviceName" label="服务"/>
@@ -31,37 +37,63 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { fetchStats, fetchRecentBookings } from '../webapi/unicloud'
+import { ElMessage } from 'element-plus'
+import { fetchStats, fetchRecentBookings, fetchShopOpen, setShopOpen } from '../webapi/unicloud'
 
 const stats = reactive({ todayTotal: 0, pending: 0, completed: 0 })
 const records = ref<any[]>([])
+const loadingRecords = ref(false)
+const shopOpen = ref<boolean>(true)
 
-onMounted(async () => {
+async function loadAll() {
   try {
     const s = await fetchStats()
     Object.assign(stats, s)
-  } catch (error) {
+  } catch (error:any) {
     console.error('加载统计数据失败:', error)
-    // 使用 mock 数据避免页面崩溃
-    Object.assign(stats, { todayTotal: 12, pending: 3, completed: 9 })
+    Object.assign(stats, { todayTotal: 0, pending: 0, completed: 0 })
+    ElMessage.error(error?.message || '加载统计数据失败')
   }
-  
+
+  loadingRecords.value = true
   try {
     records.value = await fetchRecentBookings()
-  } catch (error) {
+  } catch (error:any) {
     console.error('加载最近预约失败:', error)
-    // 使用 mock 数据
-    records.value = [
-      { date: '2024-01-15', time: '10:00', serviceName: '精致剪发', status: '已完成' },
-      { date: '2024-01-15', time: '11:30', serviceName: '洗剪吹套餐', status: '进行中' },
-      { date: '2024-01-15', time: '14:00', serviceName: '传统修面', status: '待处理' }
-    ]
+    records.value = []
+    ElMessage.error(error?.message || '加载最近预约失败')
+  } finally {
+    loadingRecords.value = false
+  }
+}
+
+onMounted(async () => {
+  await loadAll()
+  try {
+    shopOpen.value = await fetchShopOpen()
+  } catch (e) {
+    console.warn('获取店铺开关状态失败:', e)
+    shopOpen.value = true
   }
 })
+
+async function onToggleShop(val: boolean) {
+  try {
+    const result = await setShopOpen(val)
+    shopOpen.value = result
+    ElMessage.success(result ? '已切换为营业' : '已切换为关店')
+  } catch (e:any) {
+    ElMessage.error(e?.message || '设置失败')
+    // 回退到原状态
+    shopOpen.value = !val
+  }
+}
 </script>
 
 <style scoped>
 .page { padding:16px; }
+.page-title { font-size:18px; font-weight:600; margin-bottom: 12px; display:flex; align-items:center; justify-content:space-between; }
+.shop-switch { display:flex; align-items:center; gap:8px; font-weight:400; font-size:14px; }
 .cards { display:grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
 .card { text-align:center; }
 .card-title { color:#666; margin-bottom:6px; }

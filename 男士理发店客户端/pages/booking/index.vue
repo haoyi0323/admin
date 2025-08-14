@@ -1,5 +1,12 @@
 <template>
   <view class="page">
+    <!-- 公告横幅：关店或存在公告时显示 -->
+    <view v-if="noticeVisible" class="notice-banner">
+      <text class="notice-text">{{ noticeText }}</text>
+      <text v-if="expectedOpenTime" class="notice-time">预计恢复：{{ expectedOpenTime }}</text>
+    </view>
+    
+    <!-- 原有内容 -->
     <view class="form-card">
       <view class="form-item">
         <text class="label">服务类型</text>
@@ -113,6 +120,11 @@ export default {
     const hh = `${Math.max(9, now.getHours())}`.padStart(2, '0')
     const mi = `${now.getMinutes()}`.padStart(2, '0')
     return {
+      // 公告相关
+      noticeText: '',
+      expectedOpenTime: '',
+      shopOpen: true,
+      
       serviceList: [],
       serviceOptions: [],
       selectedServiceIndex: 0,
@@ -127,10 +139,19 @@ export default {
 
     }
   },
+  computed: {
+    currentService() { return this.serviceList[this.selectedServiceIndex] || null },
+    noticeVisible() {
+      return !this.shopOpen || !!this.noticeText
+    }
+  },
   async onShow() {
     try {
       // 加载服务列表
       await this.loadServices()
+      
+      // 加载店铺状态与公告
+      await this.loadShopState()
       
       const preId = uni.getStorageSync('MY_PRESELECT_SERVICE')
       if (preId) {
@@ -146,10 +167,23 @@ export default {
 
     } catch(e) {}
   },
-  computed: {
-    currentService() { return this.serviceList[this.selectedServiceIndex] || null }
-  },
   methods: {
+    async loadShopState() {
+      try {
+        const res = await uniCloud.callFunction({
+          name: 'booking',
+          data: { action: 'getShopOpen' }
+        })
+        const result = res?.result || {}
+        if (result.code === 0) {
+          this.shopOpen = !!(result.data && result.data.shopOpen)
+          this.noticeText = (result.data && result.data.notice) || ''
+          this.expectedOpenTime = (result.data && result.data.expectedOpenTime) || ''
+        }
+      } catch(err) {
+        console.warn('loadShopState failed', err)
+      }
+    },
     async loadServices() {
       try {
         const res = await uniCloud.callFunction({
@@ -323,6 +357,16 @@ export default {
 </script>
 
 <style>
+.notice-banner {
+  background: #fff3cd;
+  color: #8a6d3b;
+  border: 1px solid #faebcc;
+  padding: 16rpx 20rpx;
+  border-radius: 8rpx;
+  margin: 16rpx 16rpx 0 16rpx;
+}
+.notice-text { display: block; font-size: 28rpx; }
+.notice-time { display: block; font-size: 24rpx; color: #8a6d3b; margin-top: 6rpx; }
 .page {
   padding: 24rpx;
   background: #f7f8fa;

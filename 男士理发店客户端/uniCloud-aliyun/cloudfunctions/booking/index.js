@@ -40,10 +40,27 @@ async function getBookedRanges(db, date) {
 }
 
 // 管理员权限验证函数
-function verifyAdminToken(adminToken) {
-  // 简单的token验证，实际项目中应该使用更安全的验证方式
-  const validTokens = ['admin123', 'manager456'];
-  return validTokens.includes(adminToken);
+async function verifyAdminToken(adminToken, db) {
+  if (!adminToken) return false;
+  
+  try {
+    // 从数据库configs表读取管理员Token列表
+    const tokenConf = await db.collection('configs').doc('adminTokens').get();
+    const tokenDoc = tokenConf && tokenConf.data && tokenConf.data[0];
+    
+    if (tokenDoc && tokenDoc.value && Array.isArray(tokenDoc.value)) {
+      return tokenDoc.value.includes(adminToken);
+    }
+    
+    // 如果数据库中没有配置，使用默认Token（向后兼容）
+    const defaultTokens = ['admin123', 'manager456', 'youyi2024'];
+    return defaultTokens.includes(adminToken);
+  } catch (error) {
+    console.error('验证管理员Token失败:', error);
+    // 发生错误时使用默认Token（向后兼容）
+    const defaultTokens = ['admin123', 'manager456', 'youyi2024'];
+    return defaultTokens.includes(adminToken);
+  }
 }
 
 exports.main = async (event, context) => {
@@ -69,12 +86,12 @@ exports.main = async (event, context) => {
   const action = data.action
   
   // 需要管理员权限的操作列表
-  const adminActions = ['getAllBookings', 'updateBookingStatus'];
+  const adminActions = ['getAllBookings', 'updateBookingStatus', 'setHours', 'setShopOpen', 'getAdminTokens', 'setAdminTokens'];
   
   // 检查是否需要管理员权限
   if (adminActions.includes(action)) {
     const { adminToken } = data;
-    if (!adminToken || !verifyAdminToken(adminToken)) {
+    if (!adminToken || !(await verifyAdminToken(adminToken, db))) {
       return { success: false, message: "无权限访问，需要管理员身份验证" };
     }
   }
@@ -92,19 +109,57 @@ exports.main = async (event, context) => {
   const match = hours.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
   const startStr = match ? match[1] : "09:00";
   const endStr = match ? match[2] : "20:00";
+  
+  // 获取店铺营业开关状态
+  let shopOpen = true; // 默认营业
+  try {
+    const openConf = await db.collection('configs').doc('shopOpen').get();
+    const openDoc = openConf && openConf.data && openConf.data[0];
+    if (openDoc && openDoc.value !== undefined) {
+      shopOpen = Boolean(openDoc.value);
+    }
+  } catch (e) {
+    shopOpen = true; // 默认营业
+  }
+
+  // 获取店铺公告配置
+  let shopNotice = "";
+  let expectedOpenTime = "";
+  try {
+    const noticeConf = await db.collection('configs').doc('shopNotice').get();
+    const noticeDoc = noticeConf && noticeConf.data && noticeConf.data[0];
+    if (noticeDoc) {
+      shopNotice = noticeDoc.notice || "";
+      expectedOpenTime = noticeDoc.expectedOpenTime || "";
+    }
+  } catch (e) {
+    // 默认公告为空
+  }
 
   if (action === "getSlots") {
     const { date, durationMin = 25, stepMin = 5 } = data;
     if (!date) return { code: 400, message: "date required" };
+    
+    // 如果店铺关闭，返回空时段
+    if (!shopOpen) {
+      return { code: 0, data: { slots: [], message: "店铺暂停营业", notice: shopNotice, expectedOpenTime } };
+    }
+    
     const all = listSlots({ startStr, endStr, durationMin, stepMin });
     const busy = await getBookedRanges(db, date);
     const free = all.filter((s) => busy.every((b) => !isOverlap(s.startMin, s.endMin, b.startMin, b.endMin)));
-    return { code: 0, data: { slots: free.map((s) => s.time) } };
+    return { code: 0, data: { slots: free.map((s) => s.time), notice: shopNotice, expectedOpenTime } };
   }
 
   if (action === "getEarliest") {
     const { date, durationMin = 25, stepMin = 5 } = data;
     if (!date) return { code: 400, message: "date required" };
+    
+    // 如果店铺关闭，返回空结果
+    if (!shopOpen) {
+      return { code: 0, data: { earliest: "", message: "店铺暂停营业", notice: shopNotice, expectedOpenTime } };
+    }
+    
     const all = listSlots({ startStr, endStr, durationMin, stepMin });
     const busy = await getBookedRanges(db, date);
     const free = all.filter((s) => busy.every((b) => !isOverlap(s.startMin, s.endMin, b.startMin, b.endMin)));
@@ -116,7 +171,7 @@ exports.main = async (event, context) => {
   }
 
   if (action === "getHours") {
-    return { code: 0, data: { hours } }
+    return { code: 0, data: { hours, shopOpen, notice: shopNotice, expectedOpenTime } }
   }
 
   if (action === "setHours") {
@@ -131,6 +186,11 @@ exports.main = async (event, context) => {
     const { userId = "", serviceId = 0, date, time, durationMin = 25, remark = "", phone = "" } = data;
     if (!date || !time) return { code: 400, message: "date/time required" };
     if (!userId) return { code: 400, message: "userId required" };
+
+    // 如果店铺关闭，禁止创建预约
+    if (!shopOpen) {
+      return { code: 403, message: "店铺暂停营业，暂时无法预约" };
+    }
 
     // 冲突检测
     const startMin = parseTimeToMinutes(time);
@@ -338,6 +398,67 @@ exports.main = async (event, context) => {
     } catch (error) {
       console.error('获取预约列表失败:', error);
       return { success: false, message: "获取预约列表失败" };
+    }
+  }
+
+  if (action === "getShopOpen") {
+    return { code: 0, data: { shopOpen, hours, notice: shopNotice, expectedOpenTime } }
+  }
+
+  if (action === "setShopOpen") {
+    const { open } = data;
+    if (open === undefined) return { code: 400, message: "open required" };
+    await db.collection('configs').doc('shopOpen').set({ key: 'shopOpen', value: Boolean(open), updatedAt: Date.now(), _id: 'shopOpen' });
+    return { code: 0, data: { ok: true, shopOpen: Boolean(open) } };
+  }
+
+  if (action === "getAdminTokens") {
+    try {
+      const tokenConf = await db.collection('configs').doc('adminTokens').get();
+      const tokenDoc = tokenConf && tokenConf.data && tokenConf.data[0];
+      
+      if (tokenDoc && tokenDoc.value && Array.isArray(tokenDoc.value)) {
+        return { success: true, data: { tokens: tokenDoc.value } };
+      }
+      
+      // 如果数据库中没有配置，返回默认Token列表
+      const defaultTokens = ['admin123', 'manager456', 'youyi2024'];
+      return { success: true, data: { tokens: defaultTokens } };
+    } catch (error) {
+      console.error('获取管理员Token列表失败:', error);
+      return { success: false, message: "获取Token列表失败" };
+    }
+  }
+
+  if (action === "setAdminTokens") {
+    const { tokens } = data;
+    if (!tokens || !Array.isArray(tokens)) {
+      return { success: false, message: "tokens必须是数组" };
+    }
+    
+    if (tokens.length === 0) {
+      return { success: false, message: "至少需要一个管理员Token" };
+    }
+    
+    // 验证Token格式（至少6位字符）
+    for (const token of tokens) {
+      if (!token || typeof token !== 'string' || token.length < 6) {
+        return { success: false, message: "Token必须是至少6位的字符串" };
+      }
+    }
+    
+    try {
+      await db.collection('configs').doc('adminTokens').set({
+        key: 'adminTokens',
+        value: tokens,
+        updatedAt: Date.now(),
+        _id: 'adminTokens'
+      });
+      
+      return { success: true, data: { ok: true, tokens } };
+    } catch (error) {
+      console.error('设置管理员Token列表失败:', error);
+      return { success: false, message: "设置Token列表失败" };
     }
   }
 

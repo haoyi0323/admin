@@ -4,9 +4,29 @@
 // 支持跨域、权限验证、云函数转发
 
 // 管理员权限验证
-function verifyAdminToken(adminToken) {
-  const validTokens = ['admin123', 'manager456', 'youyi2024']; // 建议改成复杂token
-  return validTokens.includes(adminToken);
+
+async function verifyAdminToken(adminToken) {
+  if (!adminToken) return false;
+  
+  try {
+    const db = uniCloud.database();
+    // 从数据库configs表读取管理员Token列表
+    const tokenConf = await db.collection('configs').doc('adminTokens').get();
+    const tokenDoc = tokenConf && tokenConf.data && tokenConf.data[0];
+    
+    if (tokenDoc && tokenDoc.value && Array.isArray(tokenDoc.value)) {
+      return tokenDoc.value.includes(adminToken);
+    }
+    
+    // 如果数据库中没有配置，使用默认Token（向后兼容）
+    const defaultTokens = ['admin123', 'manager456', 'youyi2024'];
+    return defaultTokens.includes(adminToken);
+  } catch (error) {
+    console.error('验证管理员Token失败:', error);
+    // 发生错误时使用默认Token（向后兼容）
+    const defaultTokens = ['admin123', 'manager456', 'youyi2024'];
+    return defaultTokens.includes(adminToken);
+  }
 }
 
 exports.main = async (event, context) => {
@@ -30,7 +50,7 @@ exports.main = async (event, context) => {
     // 验证管理员权限（对于敏感操作）
     const adminActions = ['getAllBookings', 'setHours', 'updateBooking'];
     if (adminActions.some(action => data.action === action)) {
-      if (!verifyAdminToken(data.adminToken)) {
+      if (!(await verifyAdminToken(data.adminToken))) {
         return {
           statusCode: 403,
           headers,

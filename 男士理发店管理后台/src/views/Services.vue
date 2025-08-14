@@ -11,7 +11,7 @@
     <div class="services-grid">
       <div v-for="service in services" :key="service._id" class="service-card">
         <div class="card-image">
-          <img :src="service.image || '/placeholder-service.jpg'" 
+          <img :src="service.image || '/placeholder-service.svg'" 
                :alt="service.name" 
                @error="handleImageError">
         </div>
@@ -112,8 +112,6 @@ export default {
   name: 'Services',
   data() {
     return {
-      // 临时开关：使用 mock 数据避免 AxiosError
-      useMockData: true,
       services: [],
       showModal: false,
       isEdit: false,
@@ -137,43 +135,6 @@ export default {
   methods: {
     async loadServices() {
       try {
-        if (this.useMockData) {
-          // Mock 数据，避免 AxiosError
-          this.services = [
-            {
-              _id: '1',
-              name: '精致剪发',
-              description: '专业理发师精心设计，打造个性造型',
-              price: 50,
-              duration: 45,
-              image: '/static/剪发.jpg',
-              isActive: true,
-              sortOrder: 1
-            },
-            {
-              _id: '2', 
-              name: '洗剪吹套餐',
-              description: '洗发+剪发+造型，一站式服务',
-              price: 80,
-              duration: 60,
-              image: '/static/洗吹.jpg',
-              isActive: true,
-              sortOrder: 2
-            },
-            {
-              _id: '3',
-              name: '传统修面',
-              description: '传统手法修面，舒缓放松',
-              price: 30,
-              duration: 30,
-              image: '/static/修面.jpg',
-              isActive: false,
-              sortOrder: 3
-            }
-          ]
-          return
-        }
-        
         const res = await callFunction('services', {
           action: 'list',
           includeInactive: true
@@ -182,10 +143,6 @@ export default {
       } catch (error) {
         console.error('加载服务列表失败:', error)
         alert('加载服务列表失败: ' + (error.message || '网络错误'))
-        
-        // 如果 API 失败，自动切换到 mock 数据
-        this.useMockData = true
-        this.loadServices()
       }
     },
     
@@ -199,13 +156,6 @@ export default {
       if (!confirm(`确定要删除服务"${service.name}"吗？`)) return
       
       try {
-        if (this.useMockData) {
-          // Mock 删除
-          this.services = this.services.filter(s => s._id !== service._id)
-          alert('删除成功 (Mock)')
-          return
-        }
-        
         await callFunction('services', {
           action: 'delete',
           id: service._id
@@ -223,28 +173,6 @@ export default {
       this.saving = true
       
       try {
-        if (this.useMockData) {
-          // Mock 保存
-          if (this.isEdit) {
-            const index = this.services.findIndex(s => s._id === this.form._id)
-            if (index >= 0) {
-              this.services[index] = { ...this.form }
-            }
-            alert('更新成功 (Mock)')
-          } else {
-            const newService = { 
-              ...this.form, 
-              _id: Date.now().toString(),
-              createdAt: new Date(),
-              updatedAt: new Date()
-            }
-            this.services.push(newService)
-            alert('创建成功 (Mock)')
-          }
-          this.closeModal()
-          return
-        }
-        
         const action = this.isEdit ? 'update' : 'create'
         const payload = { action, ...this.form }
         if (this.isEdit) payload.id = this.form._id
@@ -280,16 +208,6 @@ export default {
       const file = event.target.files[0]
       if (!file) return
       
-      if (this.useMockData) {
-        // Mock 图片上传 - 使用本地预览
-        const reader = new FileReader()
-        reader.onload = (e) => {
-          this.form.image = e.target.result
-        }
-        reader.readAsDataURL(file)
-        return
-      }
-      
       // 真实上传逻辑
       this.uploading = true
       try {
@@ -322,8 +240,8 @@ export default {
     },
     
     handleImageError(event) {
-      event.target.src = '/placeholder-service.jpg'
-    }
+      event.target.src = '/placeholder-service.svg'
+    },
   }
 }
 </script>
